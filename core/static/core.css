@@ -1,0 +1,46 @@
+body {
+	font-family: 'Raleway', sans-serif;
+	padding: 20px;
+}
+
+h1, h2 {
+	margin: 0;
+}
+
+h1 {
+	margin-bottom: 20px;
+}
+
+h2 {
+	margin-bottom: 10px;
+	font-size: 12pt;
+}
+
+.panel {
+	border-radius: 5px;
+	padding: 10px;
+	display: inline-block;
+	border: 1px solid rgba(0, 0, 0, 0.3);
+	width: 300px;
+	height: 100px;
+}
+
+.panel-data {
+	line-height: 1.4;
+	padding-left: 10px;
+	float: left;
+}
+
+.panel-status {
+	color: rgba(0, 0, 0, 0.3);
+	float: right;
+}
+
+.user img {
+	float: left;
+	width: 50px;
+}
+
+.controller.heating h2 {
+	color: red;
+}

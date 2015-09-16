@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block main %}
+	<h1>Phoebe</h1>
+	{% for user in users %}
+	<div class="panel user">
+		<img src="{{user.picture_url}}" alt="{{user}}" />
+		<div class="panel-data">
+			<h2>{{user}}</h2>
+			{% if user.last_seen %}<div>(last seen {{user.last_seen|timesince}} ago)</div>{% endif %}
+		</div>
+		<div class="panel-status material-icons">{% if user.is_present %}home{% else %}highlight_off{% endif %}</div>
+	</div>
+	{% endfor %}
+
+	{% for controller in controllers %}
+	<div class="panel controller {{controller.status}}{% if controller.is_active %} heating{% endif %}">
+		<div class="panel-data">
+			<h2>Temperature</h2>
+			<div>Current: {{controller.current_temperature}}°</div>
+			<div>Target: {{controller.target_temperature}}°</div>
+		</div>
+		<div class="panel-status material-icons">{% if controller.status == 'home' %}home{% else %}highlight_off{% endif %}</div>
+	</div>
+	{% endfor %}
+{% endblock %}

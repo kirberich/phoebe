@@ -1,0 +1,9 @@
+django==1.8
+slacker
+python-nest
+ws4py
+celery
+django-celery
+mysql-python
+django-dirtyfields
+jsonfield
