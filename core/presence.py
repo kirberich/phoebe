@@ -30,6 +30,7 @@ def scan_device(device, timeout):
 
         if is_present:
             device.is_present = True
+            device.last_scanned = now()
             device.last_seen = now()
         elif device.is_present and now() - device.last_seen > PRESENCE_TIMEOUT:
             device.is_present = False
