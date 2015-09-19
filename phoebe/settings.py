@@ -43,6 +43,7 @@ INSTALLED_APPS = (
     'core',
     'temperature',
     'notifications',
+    'power',
 )
 
 MIDDLEWARE_CLASSES = (

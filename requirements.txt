@@ -7,3 +7,5 @@ django-celery
 mysql-python
 django-dirtyfields
 jsonfield
+gevent==1.1.b1
+ouimeaux
