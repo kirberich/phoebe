@@ -1,5 +1,6 @@
 import os
 import platform
+import random
 import string
 
 from django.db import models
@@ -9,7 +10,6 @@ from django.contrib.auth.models import (
 )
 
 from dirtyfields import DirtyFieldsMixin
-from jsonfield import JSONField
 
 
 class UserManager(BaseUserManager):
@@ -73,7 +73,7 @@ class User(AbstractBaseUser):
         # The user is identified by their email address
         return self.nickname
 
-    def __unicode__(self): # __unicode__ on Python 2
+    def __unicode__(self):  # __unicode__ on Python 2
         return self.nickname
 
     def has_perm(self, perm, obj=None):
@@ -103,7 +103,6 @@ class User(AbstractBaseUser):
 
 class Home(models.Model):
     name = models.CharField(max_length=255)
-    notification_settings = JSONField(default='{}')
 
     is_in_vacation_mode = models.BooleanField(default=False)
     is_in_away_mode = models.BooleanField(default=False)
