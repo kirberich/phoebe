@@ -20,12 +20,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.8/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'CHANGEME'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
 ALLOWED_HOSTS = []
 
 
@@ -145,3 +139,8 @@ CELERYBEAT_SCHEDULE = {
 
 CELERY_TIMEZONE = 'UTC'
 CELERY_RESULT_DB_SHORT_LIVED_SESSIONS = True
+
+try:
+    from local_settings import *
+except ImportError:
+    raise Exception("Couldn't import local settings - please copy local_settings.py.example to local_settings.py and set the right configuration options")

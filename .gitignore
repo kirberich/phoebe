@@ -61,3 +61,4 @@ target/
 /static/
 celerybeat-schedule.db
 .DS_Store
+phoebe/local_settings.py
