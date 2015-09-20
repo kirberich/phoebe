@@ -8,7 +8,7 @@ from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
 
 
-from .models import User, Device
+from .models import User, Device, Home
 from temperature.models import TemperatureController
 
 
@@ -16,22 +16,31 @@ from temperature.models import TemperatureController
 def main(request):
     users = User.objects.all()
     controllers = [c.get_child() for c in TemperatureController.objects.all()]
-    # [c.update() for c in controllers]
-    return render(request, "main.html", {'users': users, 'controllers': controllers})
+    devices = Device.objects.all()
+    home = Home.objects.get()
+
+    subs = {
+        'user': request.user,
+        'users': users,
+        'controllers': controllers,
+        'devices': devices,
+        'home': home,
+    }
+
+    return render(request, "main.html", subs)
 
 
 @csrf_exempt
 def api_presence(request, user_id):
     user = User.objects.get(id=user_id)
 
-    data = json.loads(request.body)
-
-    if user.api_key != data.get('api_key'):
+    if user.api_key != request.POST.get('api_key'):
         raise PermissionDenied('invalid api key')
 
-    device = Device.objects.get(id=data['device_id'])
-    device.is_present = data['is_present']
-    device.last_seen = now()
+    device = Device.objects.get(id=request.POST['device_id'])
+    device.is_present = json.loads(request.POST['is_present'])
+    if device.is_present:
+        device.last_seen = now()
     device.save()
 
     response_data = {

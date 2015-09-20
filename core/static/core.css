@@ -17,30 +17,39 @@ h2 {
 }
 
 .panel {
+	position: relative;
 	border-radius: 5px;
 	padding: 10px;
-	display: inline-block;
 	border: 1px solid rgba(0, 0, 0, 0.3);
-	width: 300px;
-	height: 100px;
 }
 
 .panel-data {
 	line-height: 1.4;
-	padding-left: 10px;
-	float: left;
 }
 
 .panel-status {
+	position: absolute;
+	top: 0;
+	right: 0;
+	padding: 5px;
 	color: rgba(0, 0, 0, 0.3);
-	float: right;
 }
 
 .user img {
-	float: left;
-	width: 50px;
+	float:left;
+	width: 33%;
+}
+
+.user .panel-data {
+	padding-left: 10px;
+	margin-left: 33%;
+	width: 66%;
 }
 
 .controller.heating h2 {
 	color: red;
+}
+
+.device a:hover {
+	text-decoration: none;
 }
