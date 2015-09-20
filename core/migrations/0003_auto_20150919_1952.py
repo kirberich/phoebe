@@ -7,13 +7,13 @@ from django.db import models, migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0001_initial'),
+        ('core', '0002_auto_20150919_1942'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='device',
-            name='home',
-            field=models.ForeignKey(related_name='devices', to='core.Home'),
+            model_name='user',
+            name='api_key',
+            field=models.CharField(default=b'', max_length=50, blank=True),
         ),
     ]

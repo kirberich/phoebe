@@ -65,7 +65,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='device',
             name='home',
-            field=models.ForeignKey(to='core.Home'),
+            field=models.ForeignKey(related_name='devices', to='core.Home'),
         ),
         migrations.AddField(
             model_name='device',
