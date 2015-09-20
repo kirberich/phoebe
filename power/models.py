@@ -34,6 +34,9 @@ class Switch(MultiTableMixin):
         elif self.auto_on and event_type == constants.EVENT_HOME_OCCUPIED:
             self.on()
 
+    def __unicode__(self):
+        return self.name
+
 
 class WeMoSwitch(Switch):
     parent_name = 'Switch'

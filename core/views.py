@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .models import User, Device, Home
 from temperature.models import TemperatureController
+from power.models import Switch
 
 
 @login_required
@@ -24,6 +25,7 @@ def main(request):
         'users': users,
         'controllers': controllers,
         'devices': devices,
+        'switches': [s.get_child() for s in Switch.objects.all()],
         'home': home,
     }
 
@@ -38,7 +40,7 @@ def api_presence(request, user_id):
         raise PermissionDenied('invalid api key')
 
     device = Device.objects.get(id=request.POST['device_id'])
-    device.is_present = json.loads(request.POST['is_present'])
+    device.is_present = json.loads(request.POST['state'])
     if device.is_present:
         device.last_seen = now()
     device.save()

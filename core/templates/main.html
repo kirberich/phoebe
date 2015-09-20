@@ -40,10 +40,31 @@
 					{% if device.is_present %}checked{% endif %} 
 					data-url="{% url "api_presence" user_id=user.id %}"
 					data-toggle="toggle"
-					data-device="{{device.id}}" 
+					data-extra="device_id:{{device.id}}" 
 					data-on="Home" 
 					data-off="Away"
-					class="js-presence"
+					class="js-api-toggle"
+				>
+			</div>
+		</div>
+		{% endfor %}
+	</div>
+
+	<div class="switches row">
+		{% for switch in switches %}
+		<div class="panel switch col-sm-4">
+			<div class="panel-data">
+				<h2>{{switch}}</h2>
+			</div>
+			<div class="panel-status">
+				<input 
+					type="checkbox" 
+					{% if switch.is_on %}checked{% endif %} 
+					data-url="{% url "api_toggle_switch" user_id=user.id switch_id=switch.id %}"
+					data-toggle="toggle"
+					data-on="On" 
+					data-off="Off"
+					class="js-api-toggle"
 				>
 			</div>
 		</div>
