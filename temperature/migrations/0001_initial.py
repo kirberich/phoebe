@@ -27,6 +27,7 @@ class Migration(migrations.Migration):
                 ('is_in_vacation_mode', models.BooleanField(default=False)),
                 ('is_in_away_mode', models.BooleanField(default=False)),
                 ('is_active', models.BooleanField(default=False)),
+                ('auto_away', models.BooleanField(default=False)),
             ],
             options={
                 'abstract': False,
@@ -45,6 +46,11 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
             bases=('temperature.temperaturecontroller',),
+        ),
+        migrations.AddField(
+            model_name='temperaturecontroller',
+            name='home',
+            field=models.ForeignKey(to='core.Home'),
         ),
         migrations.AddField(
             model_name='temperaturecontroller',

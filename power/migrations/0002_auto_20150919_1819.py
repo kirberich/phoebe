@@ -7,13 +7,18 @@ from django.db import models, migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('temperature', '0001_initial'),
+        ('power', '0001_initial'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='temperaturecontroller',
-            name='auto_away',
+            model_name='switch',
+            name='auto_off',
+            field=models.BooleanField(default=False),
+        ),
+        migrations.AddField(
+            model_name='switch',
+            name='auto_on',
             field=models.BooleanField(default=False),
         ),
     ]
