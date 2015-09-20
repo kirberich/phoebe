@@ -11,12 +11,28 @@ class Switch(MultiTableMixin):
     name = models.CharField(max_length=255)
 
     is_on = models.BooleanField()
+    auto_off = models.BooleanField(default=False)
+    auto_on = models.BooleanField(default=False)
 
-    def on(self):
+    def on(self, save=True):
         self.is_on = True
+        if save:
+            self.save()
 
-    def off(self):
+    def off(self, save=True):
         self.is_on = False
+        if save:
+            self.save()
+
+    def update(self):
+        if save:
+            self.save()
+
+    def handle_event(self, event_type, device):
+        if self.auto_off and event_type == constants.EVENT_HOME_VACANT:
+            self.off()
+        elif self.auto_on and event_type == constants.EVENT_HOME_OCCUPIED:
+            self.on()
 
 
 class WeMoSwitch(Switch):
@@ -34,13 +50,17 @@ class WeMoSwitch(Switch):
     def api(self):
         return switch.Switch(self.xml_url)
 
-    def on(self):
+    def on(self, save=True):
         self.api.on()
-        super(WeMoSwitch, self).on()
+        super(WeMoSwitch, self).on(save=save)
 
-    def off(self):
+    def off(self, save=True):
         self.api.off()
-        super(WeMoSwitch, self).off()
+        super(WeMoSwitch, self).off(save=save)
+
+    def update(self, save=True):
+        self.is_on = self.api.get_state()
+        super(WeMoSwitch, self).update(save=save)
 
 
 from .signals import *
