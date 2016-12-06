@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     'channels',
     'core'
 ]
@@ -77,8 +78,12 @@ WSGI_APPLICATION = 'phoebe.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'phoebe',
+        'USER': 'phoebe',
+        'PASSWORD': os.environ.get('phoebe_db_password', 'test'),
+        'HOST': 'localhost',
+        'PORT': '',
     }
 }
 

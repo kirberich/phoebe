@@ -1,18 +1,18 @@
 from channels import Group
+from channels.sessions import channel_session
+
+from core.models import DeviceGroup
+from core.commands import handle_command
 
 
-def ws_connect(message, zone):
-    Group(zone).add(message.reply_channel)
-    message.reply_channel.send({
-        "text": 'connected to {}'.format(message['path']),
-    })
+def ws_connect(message):
+    pass
 
-def ws_receive(message, zone):
-    """ echo websocket test """
-    zone_group = Group(zone)
-    zone_group.send({
-        "text": zone,
-    })
 
-def ws_disconnect(message, zone):
-    Group("chat").discard(message.reply_channel)
+@channel_session
+def ws_receive(message):
+    handle_command(message)
+
+
+def ws_disconnect(message):
+    pass
