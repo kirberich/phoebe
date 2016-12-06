@@ -2,3 +2,4 @@
 /phoebe/db.sqlite3
 __pycache__
 /phoebe/env
+/bridge/env
