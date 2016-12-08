@@ -6,8 +6,14 @@ from django.contrib.auth import (
     get_user_model,
     SESSION_KEY
 )
+from django.db import transaction
+from channels import Group
 
-from core.models import Device
+from core.models import (
+    Device,
+    DeviceGroup,
+    Zone,
+)
 from django.utils import timezone
 
 
@@ -27,7 +33,7 @@ def handle_replies(f):
             message.reply_channel.send({
                 'text': json.dumps({
                     'command': 'error',
-                    'error_message': e.msg
+                    'error_message': str(e)
                 })
             })
         else:
@@ -48,6 +54,19 @@ def handle_login(message, data):
     if user:
         message.channel_session['user_id'] = user.pk
         message.user = user
+        zone_name = message.channel_session['zone_name']
+
+        # On logging in, make sure the bridge's zone exists (can't be done before login)
+        if zone_name:
+            Zone.objects.get_or_create(
+                name=zone_name,
+                user=user
+            )
+
+        # Now, record add the socket to the appropriate groups
+        Group("user_{}".format(user.id)).add(message.reply_channel)
+        Group("user_{}_zone_{}".format(user.id, zone_name)).add(message.reply_channel)
+
         return 'Successfully logged in as {}'.format(user)
     else:
         raise CommandError("Invalid user or password")
@@ -59,22 +78,50 @@ def handle_logout(message, data):
     return 'Successfully logged out.'
 
 
+def handle_update_group(message, data):
+    command_data = data['data']
+    if not command_data.get('name'):
+        raise CommandError("update_group requires a device name!")
+
+    DeviceGroup.objects.update_or_create(
+        name=command_data['name'],
+        zone=Zone.objects.get(name=message.channel_session['zone_name']),
+        defaults={
+            'friendly_name': command_data['friendly_name']
+        }
+    )
+
+
 def handle_update_device(message, data):
     """ Update the state of a device """
     # Validate command
-    if not data.get('id'):
-        raise CommandError("update_device requires an id!")
+    command_data = data['data']
+    if not command_data.get('name'):
+        raise CommandError("update_device requires a device name!")
 
     try:
-        device = Device.objects.get(pk=data['id'])
-    except Device.DoesNotExist:
-        raise CommandError("Device {} does not exist.".format(data['id']))
+        device = Device.objects.get(
+            name=command_data['name'],
+            device_type=command_data['device_type']
+        )
 
-    if data.get('data'):
-        device.data = data['data']
-        device.last_seen = timezone.now()
-        device.last_updated = timezone.now()
-        device.save()
+        if command_data.get('data'):
+            device.data = command_data['data']
+            device.last_seen = timezone.now()
+            device.last_updated = timezone.now()
+            device.save(data_source='device')
+
+    except Device.DoesNotExist:
+        # To allow creating the device, we need to double-check that the device group exists
+        device_group, created = DeviceGroup.objects.get_or_create(
+            name=command_data['device_group'],
+            zone=Zone.objects.get(name=message.channel_session['zone_name']),
+        )
+        command_data.pop('device_group')
+        command_data['device_group_id'] = device_group.pk
+        Device(
+            **command_data
+        ).save(data_source='device')
 
 
 available_commands = {
@@ -83,6 +130,7 @@ available_commands = {
     'echo': lambda message, data: message['text'],
     'whoami': lambda message, data: {'command': 'whoami', 'username': str(message.user or 'anonymous')},
     'update_device': handle_update_device,
+    'update_group': handle_update_group
 }
 
 
@@ -97,6 +145,8 @@ def handle_command(message):
         raise CommandError("No command given")
 
     command_handler = available_commands.get(data['command'])
+
     if not command_handler:
         raise CommandError("Unknown command {}".format(data['command']))
     return command_handler(message, data)
+
