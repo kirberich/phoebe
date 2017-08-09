@@ -81,7 +81,7 @@ class Zone(models.Model):
 
 
 class DeviceGroup(models.Model):
-    name = models.CharField(max_length=500)
+    name = models.CharField(max_length=500, blank=True)
     friendly_name = models.CharField(max_length=500, default='')
     zone = models.ForeignKey(Zone)
 
@@ -91,12 +91,13 @@ class DeviceGroup(models.Model):
 
 class Device(DirtyFieldsMixin, models.Model):
     class Meta:
-        unique_together = ("device_group", "name")
+        ordering = ('name',)
 
     name = models.CharField(max_length=500)
     friendly_name = models.CharField(max_length=500, blank=True, default='')
-    device_group = models.ForeignKey(DeviceGroup)
+    groups = models.ManyToManyField(DeviceGroup, blank=True)
     device_type = models.CharField(max_length=100)
+    zone = models.ForeignKey(Zone, blank=True, null=True)
 
     created = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(auto_now_add=True)
@@ -108,7 +109,11 @@ class Device(DirtyFieldsMixin, models.Model):
     options = JSONField(blank=True, default=dict)
 
     def __str__(self):
-        return "{} {}".format(self.device_type, self.friendly_name or self.name)
+        groups = [str(group) for group in self.groups.all()]
+        pretty_name = self.friendly_name or self.name
+        if groups:
+            return "{} ({})".format(pretty_name, ", ".join(groups))
+        return pretty_name
 
     def save(self, *args, data_source=None, **kwargs):
         dirty_fields = self.get_dirty_fields()
