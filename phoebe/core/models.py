@@ -1,11 +1,74 @@
 import json
+import random
+import string
 
 from django.conf import settings
 from django.contrib.postgres.fields import JSONField
 from django.db import models
+from django.utils import timezone
+
+from django.contrib.auth.models import AbstractBaseUser
 
 from channels import Group
 from dirtyfields import DirtyFieldsMixin
+
+from .managers import UserManager
+
+
+def _generate_api_key():
+    return ''.join(random.choice(string.ascii_lowercase) for _ in range(8))
+
+
+class User(AbstractBaseUser):
+    objects = UserManager()
+
+    email = models.EmailField(
+        verbose_name='email address',
+        max_length=255,
+        unique=True,
+    )
+    nickname = models.CharField(max_length=255)
+    emoji = models.CharField(max_length=100, default='')
+    picture_url = models.CharField(max_length=255, blank=True, default='')
+
+    slack_name = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_admin = models.BooleanField(default=False)
+
+    in_zone = models.ForeignKey('Zone', blank=True, null=True, related_name='present_users')
+
+    last_seen = models.DateTimeField(default=timezone.now)
+
+    api_key = models.CharField(
+        max_length=50,
+        default=_generate_api_key
+    )
+
+    USERNAME_FIELD = 'email'
+
+    def get_full_name(self):
+        # The user is identified by their email address
+        return self.nickname
+
+    def get_short_name(self):
+        # The user is identified by their email address
+        return self.nickname
+
+    def __str__(self):
+        return self.nickname
+
+    def has_perm(self, perm, obj=None):
+        """Does the user have a specific permission?"""
+        return True
+
+    def has_module_perms(self, app_label):
+        """Does the user have permissions to view the app `app_label`?"""
+        return True
+
+    @property
+    def is_staff(self):
+        """Is the user a member of staff?"""
+        return self.is_admin
 
 
 class Zone(models.Model):
