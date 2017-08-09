@@ -1,7 +1,6 @@
 from channels import Group
 from channels.sessions import channel_session
 
-from core.models import DeviceGroup
 from core.commands import handle_command
 
 

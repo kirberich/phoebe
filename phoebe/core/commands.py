@@ -2,11 +2,9 @@ from functools import wraps
 import json
 
 from django.contrib.auth import (
-    authenticate, 
+    authenticate,
     get_user_model,
-    SESSION_KEY
 )
-from django.db import transaction
 from channels import Group
 
 from core.models import (
@@ -72,7 +70,7 @@ def handle_login(message, data):
         raise CommandError("Invalid user or password")
 
 
-def handle_logout(message, data): 
+def handle_logout(message, data):
     message.channel_session['user_id'] = None
     message.user = None
     return 'Successfully logged out.'
@@ -141,7 +139,7 @@ def handle_command(message):
     except json.decoder.JSONDecodeError as e:
         raise CommandError("Invalid json.{}".format(e))
 
-    if not 'command' in data:
+    if 'command' not in data:
         raise CommandError("No command given")
 
     command_handler = available_commands.get(data['command'])
@@ -149,4 +147,3 @@ def handle_command(message):
     if not command_handler:
         raise CommandError("Unknown command {}".format(data['command']))
     return command_handler(message, data)
-

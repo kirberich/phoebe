@@ -29,5 +29,5 @@ class Device():
     def to_json(self):
         return json.dumps(self.to_dict())
 
-    def __eq__(self, other): 
+    def __eq__(self, other):
         return self.to_dict() == other.to_dict()
