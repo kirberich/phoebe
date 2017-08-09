@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.postgres',
     'channels',
-    'core'
+    'core',
+    'dirtyfields',
 ]
 
 MIDDLEWARE = [

@@ -5,6 +5,7 @@ from django.contrib.postgres.fields import JSONField
 from django.db import models
 
 from channels import Group
+from dirtyfields import DirtyFieldsMixin
 
 
 class Zone(models.Model):
@@ -25,7 +26,7 @@ class DeviceGroup(models.Model):
         return self.friendly_name or self.name
 
 
-class Device(models.Model):
+class Device(DirtyFieldsMixin, models.Model):
     class Meta:
         unique_together = ("device_group", "name")
 
@@ -47,17 +48,20 @@ class Device(models.Model):
         return "{} {}".format(self.device_type, self.friendly_name or self.name)
 
     def save(self, *args, data_source=None, **kwargs):
+        dirty_fields = self.get_dirty_fields()
         super(Device, self).save(*args, **kwargs)
 
         # If the data didn't come from a device - update the device
-        if data_source != 'device':
+        if data_source != 'device' and 'data' in dirty_fields:
             # Send update command to any connected websockets for the device's Zone
             zone = self.device_group.zone
             group = Group("user_{}_zone_{}".format(zone.user_id, zone.name))
+
+            changed_data = {k: v for k, v in self.data.items() if self.data[k] != dirty_fields['data'][k]}
 
             group.send({'text': json.dumps({
                 'command': 'set_device',
                 'device_type': self.device_type,
                 'name': self.name,
-                'data': self.data
+                'data': changed_data
             })})
