@@ -1,24 +1,32 @@
 import time
 import json
+
+from os.path import (
+    join,
+    dirname,
+)
+
 import tornado
+
 
 from websocket import (
     Client,
     make_server
 )
-import settings
 
 
-class Bridge():
-    commands = {
-        'set_device': 'forward_message',
-        'success': 'print_message'
-    }
+CONFIG_FILE = join(dirname(__file__), 'settings.json')
 
-    def __init__(self, server_url, local_port=8888):
-        self.server_url = server_url
+
+class Bridge:
+    """Central bridge for all devices. This gathers and broadcasts to and from the cloud service."""
+
+    def __init__(self, local_port=8888):
+        self.config = self.load_configuration()
+        self.server_url = self.config['phoebe_url'] + self.config['zone']
         self.local_port = local_port
         self.clients = set([])
+        self.is_logged_in = False
 
         self.client = Client(
             self.server_url,
@@ -27,8 +35,8 @@ class Bridge():
         )
         self.main_io_loop = tornado.ioloop.IOLoop.instance()
         self.periodic_callback = tornado.ioloop.PeriodicCallback(
-            self.periodic_callback, 
-            1000, 
+            self.periodic_callback_handler,
+            1000,
             io_loop=self.main_io_loop
         )
 
@@ -41,6 +49,10 @@ class Bridge():
         ])
         self.server = tornado.httpserver.HTTPServer(self.server_tornado_application)
 
+    def load_configuration(self):
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)['phoebe']
+
     def start(self):
         self.client.connect()
         self.periodic_callback.start()
@@ -51,27 +63,24 @@ class Bridge():
         except KeyboardInterrupt:
             self.client.close()
 
-    def connect_callback(self):
-        print("connection established")
-
+    def login(self):
         # Authenticate with phoebe
-        time.sleep(1)
+        print("Attempting login...")
         self.client.send({
             'command': 'login',
-            'username': settings.username,
-            'password': settings.password
+            'username': self.config['username'],
+            'password': self.config['password']
         })
 
-    def periodic_callback(self):
-        print("periodic callback")
-        print(self.clients)
+    def connect_callback(self):
+        print("connection established")
+        time.sleep(1)
+        self.login()
 
-    def print_message(self, message):
-        print(message)
-
-    def forward_message(self, message):
-        for client in self.clients:
-            client.write_message(message)
+    def periodic_callback_handler(self):
+        # Retry login if it hasn't worked so far
+        if not self.is_logged_in:
+            self.login()
 
     def client_callback(self, message):
         print("received data from phoebe server: {}".format(message))
@@ -80,10 +89,14 @@ class Bridge():
         if 'command' not in message:
             return
 
-        command = getattr(self, self.commands.get(decoded['command'], 'print_message'))
-        return command(message)
+        command = self.commands.get(decoded['command'])
+        if command:
+            return command(self, message)
+        else:
+            self.forward_message(message)
 
     def new_client_callback(self, server):
+        print("new client")
         self.clients.add(server)
 
     def server_callback(self, message):
@@ -94,8 +107,26 @@ class Bridge():
     def client_disconnected_callback(self, server):
         self.clients.remove(server)
 
+    # Command handlers
+
+    def forward_message(self, message):
+        for client in self.clients:
+            client.write_message(message)
+
+    def login_success_handler(self, message):
+        self.is_logged_in = True
+
+    def print_message(self, message):
+        print(message)
+
+    commands = {
+        'set_state': forward_message,
+        'device_state': forward_message,
+        'login_success': login_success_handler,
+        'success': print_message
+    }
+
 
 if __name__ == '__main__':
-    full_url = settings.phoebe_server + settings.zone
-    bridge = Bridge(full_url)
+    bridge = Bridge()
     bridge.start()

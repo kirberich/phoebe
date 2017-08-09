@@ -6,7 +6,7 @@ class Device():
         on the cloud service.
     """
 
-    def __init__(self, name, device_group, device_type, friendly_name='', data=None):
+    def __init__(self, name, device_type, device_group=None, friendly_name='', data=None):
         self.name = name
         self.friendly_name = friendly_name
         self.device_group = device_group

@@ -128,7 +128,7 @@ class Device(DirtyFieldsMixin, models.Model):
             changed_data = {k: v for k, v in self.data.items() if self.data[k] != dirty_fields['data'][k]}
 
             group.send({'text': json.dumps({
-                'command': 'set_device',
+                'command': 'set_state',
                 'device_type': self.device_type,
                 'name': self.name,
                 'data': changed_data

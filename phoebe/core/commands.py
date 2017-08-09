@@ -16,10 +16,11 @@ from django.utils import timezone
 
 
 class CommandError(Exception):
-    pass
+    """Top-level exception for client errors in commands."""
 
 
 def handle_replies(f):
+    """Decorator for commands to make it easy to return responses to the sending websocket."""
     @wraps(f)
     def wrapper(message):
         user_id = message.channel_session.get('user_id')
@@ -37,9 +38,16 @@ def handle_replies(f):
         else:
             if isinstance(response_data, str):
                 response_data = {'command': 'success', 'data': response_data}
-            message.reply_channel.send({
-                'text': json.dumps(response_data)
-            })
+            if response_data:
+                if isinstance(response_data, list):
+                    for message_data in response_data:
+                        message.reply_channel.send({
+                            'text': json.dumps(message_data)
+                        })
+                else:
+                    message.reply_channel.send({
+                        'text': json.dumps(response_data)
+                    })
 
     return wrapper
 
@@ -52,7 +60,7 @@ def handle_login(message, data):
     if user:
         message.channel_session['user_id'] = user.pk
         message.user = user
-        zone_name = message.channel_session['zone_name']
+        zone_name = message.channel_session.get('zone_name', 'Home')
 
         # On logging in, make sure the bridge's zone exists (can't be done before login)
         if zone_name:
@@ -65,7 +73,7 @@ def handle_login(message, data):
         Group("user_{}".format(user.id)).add(message.reply_channel)
         Group("user_{}_zone_{}".format(user.id, zone_name)).add(message.reply_channel)
 
-        return 'Successfully logged in as {}'.format(user)
+        return {'command': 'login_success'}
     else:
         raise CommandError("Invalid user or password")
 
@@ -83,7 +91,7 @@ def handle_update_group(message, data):
 
     DeviceGroup.objects.update_or_create(
         name=command_data['name'],
-        zone=Zone.objects.get(name=message.channel_session['zone_name']),
+        zone=Zone.objects.get(name=message.channel_session.get('zone_name', 'Home')),
         defaults={
             'friendly_name': command_data['friendly_name']
         }
@@ -97,6 +105,9 @@ def handle_update_device(message, data):
     if not command_data.get('name'):
         raise CommandError("update_device requires a device name!")
 
+    zone = Zone.objects.get(name='Home')  # Zone.objects.get(name=message.channel_session['zone_name']),
+    group_name = command_data.pop('device_group', '')
+
     try:
         device = Device.objects.get(
             name=command_data['name'],
@@ -107,19 +118,46 @@ def handle_update_device(message, data):
             device.data = command_data['data']
             device.last_seen = timezone.now()
             device.last_updated = timezone.now()
+            device.zone = zone
             device.save(data_source='device')
 
     except Device.DoesNotExist:
         # To allow creating the device, we need to double-check that the device group exists
-        device_group, created = DeviceGroup.objects.get_or_create(
-            name=command_data['device_group'],
-            zone=Zone.objects.get(name=message.channel_session['zone_name']),
-        )
-        command_data.pop('device_group')
-        command_data['device_group_id'] = device_group.pk
-        Device(
+        device = Device(
+            zone=zone,
             **command_data
-        ).save(data_source='device')
+        )
+        device.save(data_source='device')
+
+    if group_name:
+        device_group, created = DeviceGroup.objects.get_or_create(
+            name=group_name
+        )
+
+        if device_group not in device.groups.all():
+            device.groups.add(device_group)
+
+
+def handle_get_devices(message, data):
+    command_data = data['data']
+
+    filters = {}
+    if 'name' in command_data:
+        filters['name'] = command_data['name']
+    if 'group' in command_data:
+        filters['device_group__name'] = command_data['group']
+    if 'type' in command_data:
+        filters['device_type'] = command_data['type']
+
+    devices = Device.objects.filter(**filters)
+
+    response_data = [{
+        'command': 'set_state',
+        'device_type': device.device_type,
+        'name': device.name,
+        'data': device.data
+    } for device in devices]
+    return response_data
 
 
 available_commands = {
@@ -128,12 +166,14 @@ available_commands = {
     'echo': lambda message, data: message['text'],
     'whoami': lambda message, data: {'command': 'whoami', 'username': str(message.user or 'anonymous')},
     'update_device': handle_update_device,
-    'update_group': handle_update_group
+    'update_group': handle_update_group,
+    'get_devices': handle_get_devices,
 }
 
 
 @handle_replies
 def handle_command(message):
+    """Main entry point for all commands coming in via websocket."""
     try:
         data = json.loads(message['text'])
     except json.decoder.JSONDecodeError as e:
