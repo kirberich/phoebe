@@ -1,10 +1,11 @@
 import time
 import json
-
 from os.path import (
     join,
     dirname,
+    exists,
 )
+from urllib.parse import urljoin
 
 import tornado
 
@@ -16,6 +17,13 @@ from websocket import (
 
 
 CONFIG_FILE = join(dirname(__file__), 'settings.json')
+CONFIG_DEFAULTS = {
+    'phoebe_url': 'ws://localhost:8000/',
+    'bridge_url': 'ws://localhost:8888/',
+    'zone': 'home',
+    'username': '',
+    'password': ''
+}
 
 
 class Bridge:
@@ -23,7 +31,7 @@ class Bridge:
 
     def __init__(self, local_port=8888):
         self.config = self.load_configuration()
-        self.server_url = self.config['phoebe_url'] + self.config['zone']
+        self.server_url = urljoin(self.config['phoebe_url'], self.config['zone'])
         self.local_port = local_port
         self.clients = set([])
         self.is_logged_in = False
@@ -50,6 +58,11 @@ class Bridge:
         self.server = tornado.httpserver.HTTPServer(self.server_tornado_application)
 
     def load_configuration(self):
+        if not exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump({'phoebe': CONFIG_DEFAULTS}, f, indent=4)
+                return CONFIG_DEFAULTS
+
         with open(CONFIG_FILE, 'r') as f:
             return json.load(f)['phoebe']
 

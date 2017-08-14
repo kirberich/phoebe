@@ -4,3 +4,4 @@ __pycache__
 /phoebe/env
 /bridge/env
 /bridge/hue_config.json
+/bridge/settings.json
