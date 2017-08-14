@@ -1,5 +1,3 @@
-import json
-
 from channels import Group
 from channels.sessions import channel_session
 
