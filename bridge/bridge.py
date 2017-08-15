@@ -82,13 +82,12 @@ class Bridge:
         self.client.send({
             'command': 'login',
             'username': self.config['username'],
-            'password': self.config['password']
+            'password': self.config['password'],
+            'zone': self.config['zone']
         })
 
     def connect_callback(self):
         print("connection established")
-        time.sleep(1)
-        self.login()
 
     def periodic_callback_handler(self):
         # Retry login if it hasn't worked so far
@@ -112,9 +111,15 @@ class Bridge:
         print("new client")
         self.clients.add(server)
 
-    def server_callback(self, message):
+    def server_callback(self, message, server):
         """ Messages received from local devices to be forwarded to phoebe. """
         print("received data from local device: {}".format(message))
+
+        if not self.is_logged_in:
+            server.write_message({'command': 'error', 'data': {'message': 'not logged in'}})
+            print("not logged in!")
+            return
+
         self.client.send(message)
 
     def client_disconnected_callback(self, server):
@@ -128,6 +133,7 @@ class Bridge:
 
     def login_success_handler(self, message):
         self.is_logged_in = True
+        self.forward_message(message)
 
     def print_message(self, message):
         print(message)

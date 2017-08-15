@@ -5,6 +5,7 @@ from django.contrib.auth import (
     authenticate,
     get_user_model,
 )
+from django.db import transaction
 from channels import Group
 
 from core.models import (
@@ -52,22 +53,23 @@ def handle_replies(f):
     return wrapper
 
 
+@transaction.atomic
 def handle_login(message, data):
     if not data.get('username') or not data.get('password'):
         raise CommandError("Login requires username and password")
 
     user = authenticate(username=data['username'], password=data['password'])
+    zone_name = data['zone']
     if user:
         message.channel_session['user_id'] = user.pk
         message.user = user
-        zone_name = message.channel_session.get('zone_name', 'Home')
 
         # On logging in, make sure the bridge's zone exists (can't be done before login)
-        if zone_name:
-            Zone.objects.get_or_create(
-                name=zone_name,
-                user=user
-            )
+        Zone.objects.get_or_create(
+            name=zone_name,
+            user=user
+        )
+        message.channel_session['zone_name'] = zone_name
 
         # Now, record add the socket to the appropriate groups
         Group("user_{}".format(user.id)).add(message.reply_channel)
@@ -91,7 +93,7 @@ def handle_update_group(message, data):
 
     DeviceGroup.objects.update_or_create(
         name=command_data['name'],
-        zone=Zone.objects.get(name=message.channel_session.get('zone_name', 'Home')),
+        zone=Zone.objects.get(name=message.channel_session['zone_name']),
         defaults={
             'friendly_name': command_data['friendly_name']
         }
@@ -105,7 +107,7 @@ def handle_update_device(message, data):
     if not command_data.get('name'):
         raise CommandError("update_device requires a device name!")
 
-    zone = Zone.objects.get(name='Home')  # Zone.objects.get(name=message.channel_session['zone_name']),
+    zone = Zone.objects.get(name=message.channel_session['zone_name']),
     group_name = command_data.pop('device_group', '')
 
     try:
@@ -181,6 +183,9 @@ def handle_command(message):
 
     if 'command' not in data:
         raise CommandError("No command given")
+
+    if data['command'] != 'login' and not message.channel_session['user_id']:
+        raise Exception("Login required")
 
     command_handler = available_commands.get(data['command'])
 

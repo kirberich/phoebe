@@ -71,17 +71,23 @@ class DeviceServer:
     def on_start(self):
         pass
 
+    def command_error(self, data):
+        pass
+
     def message_callback(self, message):
         """Handle incoming device commands."""
         message_data = json.loads(message)
 
-        if 'device_type' not in message_data or not message_data['device_type'].startswith(self.device_filter):
+        if message_data.get('command') == 'error':
+            return self.command_error(message_data)
+
+        if 'device_type' in message_data and not message_data['device_type'].startswith(self.device_filter):
             return
 
         # Try to find a matching command and execute it
         command_name = message_data['command']
-        command_data = message_data['data']
-        device_name = message_data['name']
+        command_data = message_data.get('data', {})
+        device_name = message_data.get('name')
 
         command_handler_name = 'command_{}'.format(command_name)
         if not hasattr(self, command_handler_name):
@@ -89,6 +95,7 @@ class DeviceServer:
                 self,
                 command_name
             ))
+            return
 
         command_handler = getattr(self, command_handler_name)
         return command_handler(device_name, command_data)

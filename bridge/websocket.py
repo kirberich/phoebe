@@ -115,7 +115,7 @@ def make_server(connect_handler=None, message_handler=None, disconnect_handler=N
 
         def on_message(self, message):
             if message_handler:
-                return message_handler(json.loads(message))
+                return message_handler(json.loads(message), self)
 
         def on_close(self):
             print('connection closed')
