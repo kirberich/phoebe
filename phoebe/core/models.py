@@ -47,12 +47,10 @@ class User(AbstractBaseUser):
     USERNAME_FIELD = 'email'
 
     def get_full_name(self):
-        # The user is identified by their email address
-        return self.nickname
+        return self.email
 
     def get_short_name(self):
-        # The user is identified by their email address
-        return self.nickname
+        return self.nickname or self.email
 
     def __str__(self):
         return self.email

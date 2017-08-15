@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import (
     datetime,
@@ -14,6 +13,11 @@ DEVICE_UPDATE_INTERVAL = 60
 
 
 def get_switch_class():
+    """The orvibo library opens a server socket on import.
+
+    To make sure the library only gets imported in the single server that actually uses orvibo,
+    we do the import here.
+    """
     from orvibo.s20 import S20
     return S20
 
