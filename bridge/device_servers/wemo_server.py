@@ -22,6 +22,15 @@ class WeMoServer(DeviceServer):
     def on_start(self):
         self.update_devices()
 
+    def get_known_devices(self):
+        """Ask bridge for currently known devices (wemo switches don't support discovery right now)"""
+        self.client.send({
+            'command': 'get_devices',
+            'data': {
+                'type': 'wemo.switch'
+            }
+        })
+
     def _report_device_update(self, device):
         self.client.send({
             'command': 'update_device',
@@ -43,6 +52,10 @@ class WeMoServer(DeviceServer):
 
                 self._report_device_update(device)
 
+    def connect_callback(self):
+        print("Connected to bridge, asking for currently known devices...")
+        self.get_known_devices()
+
     def update_devices(self):
         try:
             self._update_devices()
@@ -55,14 +68,6 @@ class WeMoServer(DeviceServer):
                 UPDATE_INTERVAL,
                 self.update_devices,
             )
-
-    def connect_callback(self):
-        self.client.send({
-            'command': 'get_devices',
-            'data': {
-                'type': 'wemo.switch'
-            }
-        })
 
     def register_device(self, name, data):
         if 'ip' not in data:
@@ -96,3 +101,10 @@ class WeMoServer(DeviceServer):
         device = self.register_device(device_name, data)
         if device:
             self._report_device_update(device)
+
+    def command_login_success(self, device_name, data):
+        print("Bridge logged into phoebe, asking for currently known devices...")
+        self.get_known_devices()
+
+    def command_error(self, message):
+        print("An error occured: {}".format(message.get('data', {}).get('message')))
