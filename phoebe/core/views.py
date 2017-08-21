@@ -1,5 +1,7 @@
+from collections import defaultdict
 import copy
 import json
+from random import randint
 
 from channels import Group
 
@@ -14,7 +16,9 @@ from django.views.decorators.csrf import csrf_exempt
 from core.models import (
     Device,
     User,
+    Zone,
 )
+from core.signals import event
 
 
 LOOKUP_PRIORITY = [
@@ -29,11 +33,15 @@ LOOKUP_PRIORITY = [
 ]
 
 
-def expand_command(user, command):
+def handle_device_command(user, command):
     """Expand a single human-friendly API command into device-level commands.
 
     A single request for an update of a group will turn into one command message for each device.
     """
+    target = command.get('target')
+    if not target:
+        return {'errors': ['No target supplied in command data!']}
+
     for lookup in LOOKUP_PRIORITY:
         try:
             devices = Device.objects.filter(zone__user=user, **{lookup: command['target']})
@@ -44,7 +52,7 @@ def expand_command(user, command):
         if devices:
             break
 
-    expanded_commands = []
+    messages = []
     for device in devices:
         message = {
             'command': command['command'],
@@ -52,27 +60,51 @@ def expand_command(user, command):
             'name': device.name,
             'data': copy.deepcopy(command['data'])
         }
-        expanded_commands.append((device, message))
+        messages.append((device, message))
 
-    return expanded_commands
+    return {'messages': messages, 'data': '{} commands sent'.format(len(messages))}
+
+
+def handle_event_command(user, command):
+    zone_name = command.get('zone')
+    if not zone_name:
+        return {'errors': ['No zone supplied in command data!']}
+
+    zone = Zone.objects.filter(user=user, name=zone_name).first()
+    if not zone:
+        return {'errors': ['Zone with name {} does not exist for this user!'.format(zone_name)]}
+
+    event_type = command.get('target')
+    if not event_type:
+        return {'errors': ['No event supplied in command data!']}
+
+    event.send(
+        sender='command',
+        event_type=event_type,
+        zone=zone,
+        user=user,
+        data=command.get('data')
+    )
+
+    return {'data': "success"}
 
 
 @require_http_methods(['POST'])
 @csrf_exempt
 def command(request):
-    """API endpoint for sending one or multiple commands to various targets.
-
-    Accepts either a single command or a list of commands.
+    """API endpoint for executing one or multiple commands.
 
     Commands all follow this structure
     {
         'command': <command>,
-        'target': device identifier (see LOOKUP_PRIORITY for options)
+        'target': device identifier (where applicable) (see LOOKUP_PRIORITY for options)
         'data': <command_specific_data>
     }
 
-    Commands get expanded into per-device messages and then normalized -
-    only one command is ever executed per device and command type
+    Targeted commands get expanded into per-device messages and then normalized -
+    only one command is ever executed per event and command type.
+
+    Global commands aren't normalized and will all be executed as requested.
     """
 
     # Get the token
@@ -94,24 +126,52 @@ def command(request):
     if isinstance(data, dict):
         data = [data]
 
-    # Go through commands in order and store them by command and device id -
-    # when multiple commands of the same type are required for one device, later commands override old ones.
-    # Commands are not just overwritten, but combined.
-    grouped_commands = {}
+    response = defaultdict(dict)
+    messages = {}
     for command in data:
-        expanded_commands = expand_command(user, command)
-        for device, message in expanded_commands:
-            command_key = '{}-{}'.format(device.id, message['command'])
+        handler = COMMAND_HANDLERS.get(command['command'])
+        target = command.get('target')
+        command_id = command.get('id', "{}-{}".format(
+            command['command'],
+            target or randint(0, 100000)
+        ))
+        if not handler:
+            response['errors'][command_id] = "Unknown command '{}'".format(command['command'])
 
-            if command_key not in grouped_commands:
-                grouped_commands[command_key] = (device, message)
-            else:
-                grouped_commands[command_key][1]['data'].update(message['data'])
+        result = handler(user, command) or {}
 
-    sent_messages = []
-    for device, message in grouped_commands.values():
+        if 'errors' in result:
+            response['errors'][command_id] = result['errors']
+
+        if 'data' in result:
+            response['data'][command_id] = result['data']
+
+        if 'messages' in result:
+            for device, message in result['messages']:
+                # Messages as returned by commands are always in the format of
+                # (device, message), with message having the standard format of
+                # {
+                #     "command": command,
+                #     "data": data,
+                #     "name": device name,
+                #     "device_type": device type
+                # }
+                command_key = '{}-{}'.format(device.id, message['command'])
+
+                if command_key not in messages:
+                    messages[command_key] = (device, message)
+                else:
+                    messages[command_key][1]['data'].update(message['data'])
+
+    # Go through the grouped messages and send them out
+    for device, message in messages.values():
         group = Group("user_{}_zone_{}".format(device.zone.user_id, device.zone.name))
         group.send({'text': json.dumps(message)})
-        sent_messages.append(message)
 
-    return JsonResponse({'sent_messages': sent_messages})
+    return JsonResponse(response)
+
+
+COMMAND_HANDLERS = {
+    'set_state': handle_device_command,
+    'trigger_event': handle_event_command
+}

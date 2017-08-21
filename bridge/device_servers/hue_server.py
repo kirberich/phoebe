@@ -152,4 +152,4 @@ class HueServer(DeviceServer):
     @gen.coroutine
     def command_set_state(self, device_name, data):
         with (yield lock.acquire()):
-            return self._handle_set_state(device_name, data)
+            return self._set_state(device_name, data)

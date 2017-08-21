@@ -12,7 +12,8 @@ from django.contrib.auth.models import AbstractBaseUser
 from channels import Group
 from dirtyfields import DirtyFieldsMixin
 
-from .managers import UserManager
+from core.managers import UserManager
+from core.plugins import get_plugin
 
 
 def _generate_api_key():
@@ -120,7 +121,7 @@ class Device(DirtyFieldsMixin, models.Model):
         # If the data didn't come from a device - update the device
         if data_source != 'device' and 'data' in dirty_fields:
             # Send update command to any connected websockets for the device's Zone
-            zone = self.device_group.zone
+            zone = self.zone
             group = Group("user_{}_zone_{}".format(zone.user_id, zone.name))
 
             changed_data = {k: v for k, v in self.data.items() if self.data[k] != dirty_fields['data'][k]}
@@ -131,3 +132,19 @@ class Device(DirtyFieldsMixin, models.Model):
                 'name': self.name,
                 'data': changed_data
             })})
+
+
+class Plugin(models.Model):
+    """The plugin model holds all options for configured plugins.
+
+    Active plugins are triggered every time an event occurs.
+    """
+    plugin_type = models.CharField(max_length=100)
+    name = models.CharField(max_length=200)
+    is_active = models.BooleanField()
+    data = JSONField(blank=True, default=dict)
+
+    def run(self, sender, event_type, zone, user, data):
+        """Helper method to run plugins directly from the model representating their config."""
+        plugin_type = get_plugin(self.plugin_type)
+        plugin_type().run(self, sender, event_type, zone, user, data)

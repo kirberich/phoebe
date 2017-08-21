@@ -135,3 +135,9 @@ CHANNEL_LAYERS = {
         "ROUTING": "phoebe.routing.channel_routing",
     },
 }
+
+# Plugins
+
+PLUGINS = [
+    'trigger.Trigger',
+]

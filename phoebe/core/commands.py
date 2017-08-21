@@ -107,7 +107,7 @@ def handle_update_device(message, data):
     if not command_data.get('name'):
         raise CommandError("update_device requires a device name!")
 
-    zone = Zone.objects.get(name=message.channel_session['zone_name']),
+    zone = Zone.objects.get(name=message.channel_session['zone_name'])
     group_name = command_data.pop('device_group', '')
 
     try:
