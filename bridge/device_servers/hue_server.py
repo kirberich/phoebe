@@ -133,6 +133,7 @@ class HueServer(DeviceServer):
             self._report_device_update(device)
 
     def _set_state(self, device_name, data):
+        print("set state!")
         light = [l for l in self.hue_bridge.lights() if l.device_id == int(device_name)][0]
 
         try:
@@ -140,7 +141,7 @@ class HueServer(DeviceServer):
                 brightness=data.get('brightness'),
                 hue=data.get('hue'),
                 saturation=data.get('saturation'),
-                on=data['on']
+                on=data.get('on')
             )
         except HueError:
             logging.exception("Couldn't update hue device!")

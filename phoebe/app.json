@@ -1,0 +1,26 @@
+{
+  "name": "Phoebe",
+  "description": "Phoebe",
+  "image": "heroku/python",
+  "repository": "https://github.com/kirberich/phoebe",
+  "keywords": ["python", "django" ],
+  "addons": ["heroku-postgresql", "heroku-redis"],
+  "environments": {
+    "test": {
+      "scripts": {
+        "test-setup": "python manage.py collectstatic --noinput",
+        "test": "python manage.py test"
+      }
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "Free"
+    },
+    "worker": {
+      "quantity": 1,
+      "size": "Free"
+    }
+  }
+}

@@ -11,6 +11,12 @@ https://docs.djangoproject.com/en/1.10/ref/settings/
 """
 
 import os
+import dj_database_url
+from os.path import join, dirname
+from dotenv import load_dotenv
+
+dotenv_path = join(dirname(dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -25,8 +31,7 @@ SECRET_KEY = '*g@fspkn=jvw=xb54nm*zqudl+7&=599aajt8xnoh0=7ma$)b7'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [os.environ.get('HOST', 'localhost')]
 
 # Application definition
 
@@ -77,17 +82,14 @@ WSGI_APPLICATION = 'phoebe.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.10/ref/settings/#databases
 
+db_from_env = dj_database_url.config()
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'phoebe',
-        'USER': 'phoebe',
-        'PASSWORD': os.environ.get('PHOEBE_DB_PASSWORD', 'test'),
-        'HOST': 'localhost',
-        'PORT': '',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
-
+DATABASES['default'] = dj_database_url.config(conn_max_age=500)
 
 # Password validation
 # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
@@ -129,10 +131,26 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+S3_USE_SIGV4 = True
+AWS_S3_HOST = "s3.eu-west-1.amazonaws.com"
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+MEDIA_URL = '/media/'
+
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "asgiref.inmemory.ChannelLayer",
+        "BACKEND": "asgi_redis.RedisChannelLayer",
         "ROUTING": "phoebe.routing.channel_routing",
+        "CONFIG": {
+            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
+        },
     },
 }
 

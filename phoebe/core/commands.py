@@ -1,5 +1,6 @@
 from functools import wraps
 import json
+import logging
 
 from django.contrib.auth import (
     authenticate,
@@ -70,10 +71,6 @@ def handle_login(message, data):
             user=user
         )
         message.channel_session['zone_name'] = zone_name
-
-        # Now, record add the socket to the appropriate groups
-        Group("user_{}".format(user.id)).add(message.reply_channel)
-        Group("user_{}_zone_{}".format(user.id, zone_name)).add(message.reply_channel)
 
         return {'command': 'login_success'}
     else:
@@ -162,6 +159,17 @@ def handle_get_devices(message, data):
     return response_data
 
 
+def handle_keepalive(message, data):
+    zone = Zone.objects.get(name=message.channel_session['zone_name'])
+    group = Group(
+        "user_{}_zone_{}".format(zone.user_id, zone.name)
+    )
+
+    group.send({'text': json.dumps({
+        'command': 'keepalive',
+    })})
+
+
 available_commands = {
     'login': handle_login,
     'logout': handle_logout,
@@ -170,6 +178,7 @@ available_commands = {
     'update_device': handle_update_device,
     'update_group': handle_update_group,
     'get_devices': handle_get_devices,
+    'keepalive': handle_keepalive,
 }
 
 
@@ -186,6 +195,14 @@ def handle_command(message):
 
     if data['command'] != 'login' and not message.channel_session['user_id']:
         raise Exception("Login required")
+
+    # Now, record add the socket to the appropriate groups
+    user_id = message.channel_session.get('user_id')
+    if user_id:
+        user = get_user_model().objects.get(id=user_id)
+        zone = Zone.objects.get(name=message.channel_session['zone_name'])
+        Group("user_{}".format(user.id)).add(message.reply_channel)
+        Group("user_{}_zone_{}".format(user.id, zone.name)).add(message.reply_channel)
 
     command_handler = available_commands.get(data['command'])
 

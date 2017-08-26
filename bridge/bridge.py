@@ -1,4 +1,3 @@
-import time
 import json
 from os.path import (
     join,
@@ -8,7 +7,7 @@ from os.path import (
 from urllib.parse import urljoin
 
 import tornado
-
+import tornado.httpserver
 
 from websocket import (
     Client,
@@ -47,6 +46,11 @@ class Bridge:
             1000,
             io_loop=self.main_io_loop
         )
+        self.keepalive_callback = tornado.ioloop.PeriodicCallback(
+            self.keepalive_handler,
+            10000,
+            io_loop=self.main_io_loop
+        )
 
         self.server_tornado_application = tornado.web.Application([
             (r'/', make_server(
@@ -69,6 +73,7 @@ class Bridge:
     def start(self):
         self.client.connect()
         self.periodic_callback.start()
+        self.keepalive_callback.start()
         self.server.listen(self.local_port)
 
         try:
@@ -93,6 +98,12 @@ class Bridge:
         # Retry login if it hasn't worked so far
         if not self.is_logged_in:
             self.login()
+
+    def keepalive_handler(self):
+        print("send keepalive message")
+        self.client.send({
+            'command': 'keepalive',
+        })
 
     def client_callback(self, message):
         print("received data from phoebe server: {}".format(message))
