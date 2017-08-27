@@ -20,8 +20,10 @@ from device import Device
 from .device_server import DeviceServer
 
 
-UPDATE_INTERVAL = 1
+SENSOR_UPDATE_INTERVAL = 0.2
+LIGHT_UPDATE_INTERVAL = 1
 ROOM_UPDATE_INTERVAL = 30
+UPDATE_INTERVAL = min(SENSOR_UPDATE_INTERVAL, LIGHT_UPDATE_INTERVAL, ROOM_UPDATE_INTERVAL)
 
 lock = locks.Lock()
 
@@ -34,6 +36,8 @@ class HueServer(DeviceServer):
 
     def __init__(self):
         self.devices = {}
+        self.sensors_last_updated = datetime.now()
+        self.lights_last_updated = datetime.now()
         self.rooms_last_updated = datetime.now()
         self.rooms = []
 
@@ -62,7 +66,8 @@ class HueServer(DeviceServer):
         self.save_configuration()
 
     def on_start(self):
-        self.update_devices()
+        self.update_lights()
+        self.update_sensors()
 
     def _report_device_update(self, device):
         print("sending data....")
@@ -71,48 +76,88 @@ class HueServer(DeviceServer):
             'data': device.to_dict()
         })
 
-    def _update_devices(self):
+    def _update_lights(self):
         """Send updates of any changed lights to the bridge."""
         # Update rooms if necessary - rooms change very rarely, so there's no need updating them as frequently as lights
         if not self.rooms or datetime.now() > self.rooms_last_updated + timedelta(seconds=ROOM_UPDATE_INTERVAL):
-            self.rooms_last_updated = datetime.now()
             self.rooms = [g for g in self.hue_bridge.groups() if g.group_type() == 'Room']
+            self.rooms_last_updated = datetime.now()
             print("scanned {} rooms".format(len(self.rooms)))
 
-        for room in self.rooms:
-            for light in room.lights():
-                print("scanned light {}".format(light.device_id))
+        if self.lights_last_updated + timedelta(seconds=LIGHT_UPDATE_INTERVAL):
+            for room in self.rooms:
+                for light in room.lights():
+                    light_name = 'light-{}'.format(light.device_id)
+                    print("scanned light {}".format(light_name))
 
-                light_device = Device(
-                    name=light.device_id,
-                    device_group=room.device_id,
-                    device_type="hue." + light.__class__.__name__,
-                    friendly_name=light._name,
-                    data=light.state()
+                    light_device = Device(
+                        name=light_name,
+                        device_group=room.device_id,
+                        device_type="hue." + light.__class__.__name__,
+                        friendly_name=light._name,
+                        data=light.state()
+                    )
+
+                    if light_name not in self.devices or self.devices[light_name] != light_device:
+                        self.devices[light_name] = light_device
+
+                        # Don't try to send anything if we're not connected to the bridge
+                        if not self.client.is_connected:
+                            continue
+
+                        self._report_device_update(light_device)
+            self.lights_last_updated = datetime.now()
+
+    def _update_sensors(self):
+        if self.sensors_last_updated + timedelta(seconds=SENSOR_UPDATE_INTERVAL):
+            for sensor in self.hue_bridge.sensors():
+                print("scanned sensor {}".format(sensor.device_id))
+                sensor_name = 'sensor-{}'.format(sensor.device_id)
+                sensor_device = Device(
+                    name=sensor_name,
+                    device_type="hue." + sensor.__class__.__name__,
+                    friendly_name=sensor._name,
+                    data=sensor.state(max_age=1)
                 )
 
-                if light.device_id not in self.devices or self.devices[light.device_id] != light_device:
-                    self.devices[light.device_id] = light_device
+                if sensor_name not in self.devices or self.devices[sensor_name] != sensor_device:
+                    self.devices[sensor_name] = sensor_device
 
                     # Don't try to send anything if we're not connected to the bridge
                     if not self.client.is_connected:
                         continue
 
-                    self._report_device_update(light_device)
+                    self._report_device_update(sensor_device)
+            self.sensors_last_updated = datetime.now()
 
     @gen.coroutine
-    def update_devices(self):
+    def update_lights(self):
         try:
             with (yield lock.acquire()):
-                self._update_devices()
+                self._update_lights()
         except Exception:
             logging.exception("Something went wrong trying to update devices")
         finally:
             # Schedule the next device update. We're doing this instead of a periodic timeout to allow
             # taking into account the time it takes the scan to run.
             self.main_io_loop.call_later(
-                UPDATE_INTERVAL,
-                self.update_devices,
+                LIGHT_UPDATE_INTERVAL,
+                self.update_lights,
+            )
+
+    @gen.coroutine
+    def update_sensors(self):
+        try:
+            with (yield lock.acquire()):
+                self._update_sensors()
+        except Exception:
+            logging.exception("Something went wrong trying to update sensors")
+        finally:
+            # Schedule the next device update. We're doing this instead of a periodic timeout to allow
+            # taking into account the time it takes the scan to run.
+            self.main_io_loop.call_later(
+                SENSOR_UPDATE_INTERVAL,
+                self.update_sensors,
             )
 
     def connect_callback(self):
