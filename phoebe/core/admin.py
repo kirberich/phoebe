@@ -14,7 +14,7 @@ from core.plugins import get_plugins
 class PluginForm(forms.ModelForm):
     class Meta:
         model = Plugin
-        fields = ('plugin_type', 'name', 'is_active')
+        fields = ('plugin_type', 'name', 'is_active', 'data')
         widgets = {
             'plugin_type': forms.Select()
         }
